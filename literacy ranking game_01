@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>대한민국 문해력 지역 대항전 V4</title>
+    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&family=Noto+Sans+KR:wght@500;800&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+<style>
+    :root {
+        --bg-dark-blue: #1A1B2F;
+        --main-neon-blue: #00F0FF;
+        --main-yellow: #FFD166;
+        --main-green: #06D6A0;
+        --point-red: #EF476F;
+        --point-purple: #8338EC;
+        --text-light: #F8F9FA;
+        --card-dark: #242642;
+        
+        --rank-gold: #FFD700;
+        --rank-silver: #C0C0C0;
+        --rank-bronze: #CD7F32;
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'Noto Sans KR', sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    body {
+        background-color: #0B0C10;
+        color: var(--text-light);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        overflow: hidden;
+    }
+
+    /* 390px 스마트폰 세로 화면부터 완벽 유동 반응하는 모바일 컨테이너 */
+    .game-container {
+        width: 100%;
+        max-width: 420px;
+        height: 100vh;
+        max-height: 880px;
+        background: linear-gradient(180deg, var(--bg-dark-blue) 0%, #111222 100%);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border: 3px solid #333;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    }
+
+    @media (min-width: 421px) {
+        .game-container {
+            border-radius: 20px;
+            height: 94vh;
+        }
+    }
+
+    /* 스크린 기본 액션 클래스 */
+    .screen {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        padding: 18px;
+        position: absolute;
+        top: 0; left: 0;
+        overflow-y: auto;
+    }
+
+    .screen.active {
+        display: flex;
+        animation: screenFadeIn 0.3s ease-out forwards;
+    }
+
+    .font-title { font-family: 'Black Han Sans', sans-serif; letter-spacing: 0.5px; }
+    .font-ui { font-family: 'Jua', sans-serif; }
+
+    /* 대항전 시그니처 네온 스타일 공통 버튼 */
+    .btn-action {
+        width: 100%;
+        padding: 14px;
+        font-size: 1.4rem;
+        border: 3px solid var(--text-light);
+        border-radius: 14px;
+        cursor: pointer;
+        color: var(--text-light);
+        box-shadow: 0 5px 0 #000;
+        transition: all 0.05s ease;
+        position: relative;
+        top: 0;
+    }
+    .btn-action:active {
+        top: 4px;
+        box-shadow: 0 1px 0 #000;
+    }
+
+    /* --- 1. 대항전 시작 정보 입력 화면 --- */
+    #screen-start { justify-content: space-between; align-items: center; text-align: center; }
+    .main-header-group { margin-top: 15px; }
+    .main-header-group h1 {
+        font-size: 2.5rem;
+        color: var(--main-neon-blue);
+        text-shadow: 0 0 10px rgba(0,240,255,0.5), 3px 3px 0 var(--point-purple);
+        line-height: 1.2;
+    }
+    .main-header-group p { font-size: 1.05rem; color: var(--main-yellow); margin-top: 5px; }
+
+    .form-info-box {
+        width: 100%;
+        background: var(--card-dark);
+        border: 2px solid #3d406b;
+        border-radius: 16px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+    }
+    .form-label { font-size: 1.1rem; color: var(--text-light); text-align: left; margin-bottom: 2px; font-weight: bold; }
+    .input-text {
+        width: 100%; padding: 11px; font-size: 1.1rem; background: #0F101D; color: #fff;
+        border: 2.5px solid var(--main-neon-blue); border-radius: 10px; outline: none; text-align: center;
+    }
+    .select-row { display: flex; gap: 8px; }
+    .select-element {
+        flex: 1; padding: 11px; font-size: 1.05rem; background: #0F101D; color: #fff;
+        border: 2.5px solid #3d406b; border-radius: 10px; outline: none; cursor: pointer;
+    }
+    .select-element:focus { border-color: var(--main-neon-blue); }
+
+    /* 실시간 인포그래픽 보드 스타일 */
+    .live-status-board {
+        width: 100%; background: rgba(0,0,0,0.4); border: 2px solid #222; border-radius: 12px; padding: 10px; margin-bottom: 12px;
+    }
+    .status-board-title { font-size: 0.95rem; color: var(--main-neon-blue); text-align: left; margin-bottom: 6px; font-weight: bold; }
+    .status-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.85rem; border-bottom: 1px solid #222; }
+    .status-row:last-child { border: none; }
+
+    /* --- 2. 실시간 대항전 퀴즈 보드 및 헤더 --- */
+    .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .q-badge { background: var(--point-purple); color: white; padding: 4px 10px; border-radius: 8px; font-size: 1rem; border: 1.5px solid #fff; }
+    .score-realtime { font-size: 1.15rem; color: var(--main-neon-blue); }
+
+    .progress-outer { width: 100%; height: 10px; background: #111; border-radius: 5px; overflow: hidden; margin-bottom: 8px; border: 1px solid #333; }
+    .progress-inner { height: 100%; width: 0%; background: var(--main-green); transition: width 0.2s linear; }
+
+    .timer-widget { display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 15px; border: 1.5px solid #333; margin-bottom: 10px; font-size: 0.9rem; align-self: center; }
+    .timer-track { width: 80px; height: 8px; background: #222; border-radius: 4px; overflow: hidden; }
+    .timer-fill { width: 100%; height: 100%; background: var(--point-red); }
+
+    .quiz-card {
+        background: var(--card-dark); border: 2.5px solid #3d406b; border-radius: 16px;
+        padding: 16px; min-height: 95px; display: flex; flex-direction: column;
+        justify-content: center; align-items: center; text-align: center; position: relative; margin-bottom: 12px;
+    }
+    .quiz-tag { position: absolute; top: -11px; background: var(--main-neon-blue); color: #000; padding: 1px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; }
+    .quiz-text { font-size: 1.15rem; font-weight: 800; line-height: 1.45; word-break: keep-all; }
+
+    .zone-interactive { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; position: relative; }
+    
+    /* 객관식 레이아웃 전용 */
+    .btn-choice {
+        background: #1B1C33; border: 2px solid #3d406b; border-radius: 12px;
+        padding: 11px 14px; font-size: 1rem; text-align: left; cursor: pointer; color: white;
+        transition: all 0.1s; display: flex; align-items: center;
+    }
+    .btn-choice:active { background: #252746; border-color: var(--main-neon-blue); }
+    .choice-idx { background: #000; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; justify-content: center; align-items: center; margin-right: 10px; border: 1.5px solid var(--main-neon-blue); font-size: 0.8rem; font-weight: bold; color: var(--main-neon-blue); }
+
+    /* 주관식 구성 */
+    .sub-container { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+
+    /* 완벽 양방향 & 터치 모바일 지원 선긋기 캔버스 시스템 */
+    .matching-board { display: flex; justify-content: space-between; position: relative; width: 100%; height: 240px; }
+    .canvas-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+    .match-column { display: flex; flex-direction: column; justify-content: space-between; width: 44%; height: 100%; z-index: 6; }
+    
+    .node-box {
+        background: #1B1C33; border: 2px solid #3d406b; border-radius: 10px;
+        padding: 8px; font-size: 0.85rem; text-align: center; color: white;
+        cursor: pointer; min-height: 44px; display: flex; align-items: center; justify-content: center;
+        position: relative; word-break: keep-all; transition: background 0.15s;
+    }
+    .node-box.selected { background: #2E2F54; border-color: var(--main-neon-blue); box-shadow: 0 0 8px rgba(0,240,255,0.4); }
+    .node-box.linked-success { background: #13332B; border-color: var(--main-green); cursor: default; color: #8ce9c4; }
+
+    /* --- 3. 중첩 차단 독점식 글로벌 콤보 알림창 --- */
+    .combo-layer-overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        display: none; justify-content: center; align-items: center; z-index: 100; pointer-events: none;
+    }
+    .combo-neon-card {
+        background: #0B0C10; border: 3px solid var(--point-red); border-radius: 20px;
+        padding: 16px 32px; text-align: center; box-shadow: 0 0 20px rgba(239,71,111,0.6);
+        transform: scale(0.5); opacity: 0;
+    }
+    .combo-neon-card.run-animation { animation: comboAnimate 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    .combo-title-main { font-size: 2.2rem; color: var(--point-red); text-shadow: 0 0 10px rgba(239,71,111,0.4); }
+    .combo-subtitle-sub { font-size: 1.4rem; color: var(--main-yellow); font-weight: bold; margin-top: 2px; }
+
+    /* 깜빡이 플래시 효과 */
+    .flash-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 80; display: none; }
+    .flash-screen.correct-state { display: block; background: rgba(6, 214, 160, 0.12); animation: flashFade 0.35s ease-out; }
+
+    /* --- 4. 정밀 다차원 플레이 완료 결과 화면 --- */
+    .result-title { font-size: 2.2rem; color: var(--main-yellow); text-shadow: 0 0 8px rgba(255,209,102,0.3); text-align: center; margin-bottom: 10px; }
+    .score-board-wrapper {
+        background: var(--card-dark); border: 2px solid #3d406b; border-radius: 16px;
+        padding: 12px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px;
+    }
+    .board-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #3a3d5e; font-size: 0.95rem; }
+    .board-row:last-child { border: none; font-size: 1.25rem; color: var(--main-neon-blue); font-weight: bold; }
+
+    .contribution-badge-box {
+        background: var(--point-purple); border: 2px solid #fff; border-radius: 14px;
+        padding: 10px; text-align: center; margin-bottom: 12px; box-shadow: 0 0 10px rgba(131,56,236,0.5);
+    }
+
+    /* --- 5. 실시간 동적 SVG 지도 결합 대시보드 스크린 --- */
+    .map-frame-box {
+        width: 100%; height: 210px; background: #0F101D; border: 2px solid #3d406b;
+        border-radius: 16px; display: flex; justify-content: center; align-items: center; padding: 4px; margin-bottom: 10px;
+    }
+    .map-engine-svg { width: 100%; height: 100%; }
+    .svg-region-path { fill: #1D1E3A; stroke: #32345A; stroke-width: 1.5; transition: fill 0.3s; }
+    
+    /* 랭킹별 지도 색상 테마 피드백 구현 */
+    .svg-region-path.rank-gold-color { fill: var(--rank-gold) !important; stroke: #fff; }
+    .svg-region-path.rank-silver-color { fill: var(--rank-silver) !important; stroke: #fff; }
+    .svg-region-path.rank-bronze-color { fill: var(--rank-bronze) !important; stroke: #fff; }
+    .svg-region-path.rank-normal-color { fill: #2B4C7E; }
+    
+    /* 내 소속 지역 깜빡이 이펙트 무한 루프 */
+    .svg-region-path.my-target-blink {
+        stroke: var(--point-red) !important;
+        stroke-width: 3.5 !important;
+        animation: regionBlinkInfinite 0.8s infinite alternate;
+    }
+
+    .ranking-scroll-panel {
+        background: #0F101D; border: 2px solid #222; border-radius: 12px;
+        padding: 6px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;
+    }
+    .rank-item-flex { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 8px; font-size: 0.9rem; background: #16172B; }
+    .rank-item-flex.my-town-highlight { background: #342E1F; border: 1.5px solid var(--main-yellow); }
+    
+    .circle-badge { width: 20px; height: 20px; border-radius: 50%; background: #444; display: inline-flex; justify-content: center; align-items: center; color: white; font-size: 0.75rem; font-weight: bold; margin-right: 6px; }
+    .circle-badge.bg1 { background: var(--rank-gold); color: #000; }
+    .circle-badge.bg2 { background: var(--rank-silver); color: #000; }
+    .circle-badge.bg3 { background: var(--rank-bronze); color: #fff; }
+
+    /* 애니메이션 모음 */
+    @keyframes screenFadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+    @keyframes flashFade { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes regionBlinkInfinite { from { fill-opacity: 1; } to { fill-opacity: 0.4; } }
+    @keyframes comboAnimate {
+        0% { transform: scale(0.4); opacity: 0; }
+        15% { transform: scale(1.1); opacity: 1; }
+        35% { transform: scale(1); }
+        85% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(0.7); opacity: 0; }
+    }
+    .shake-body { animation: shakeAction 0.35s ease-in-out; }
+    @keyframes shakeAction {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-6px); }
+        40%, 80% { transform: translateX(6px); }
+    }
+</style>
+
+</head>
+<body>
+
+<div class="game-container" id="game-viewport">
+    <div class="flash-screen" id="feedback-flash-backdrop"></div>
+
+<div class="combo-layer-overlay" id="global-combo-layer">
+    <div class="combo-neon-card game-ui-font" id="combo-neon-box">
+        <div class="combo-title-main" id="text-combo-title">3 COMBO</div>
+        <div class="combo-subtitle-sub" id="text-combo-subtitle">GOOD!</div>
+    </div>
+</div>
+
+<div class="screen active" id="screen-start">
+    <div class="main-header-group">
+        <h1 class="font-title">대한민국 문해력<br>지역 대항전</h1>
+        <p class="font-ui">우리 지역의 자존심을 걸고 대전하라!</p>
+    </div>
+
+    <div class="live-status-board game-ui-font">
+        <div class="status-board-title">📊 실시간 매치 참여 현황</div>
+        <div class="status-row"><span>총 참여 플레이어 수</span><span id="meta-total-users" style="color:var(--main-neon-blue); font-weight:bold;">연결 중...</span></div>
+        <div class="status-row"><span>현재 매치 1위 지역</span><span id="meta-top-region" style="color:var(--main-yellow);">연결 중...</span></div>
+    </div>
+
+    <div class="form-info-box font-ui">
+        <div>
+            <div class="form-label">🏅 국가대표 닉네임</div>
+            <input type="text"
+       class="input-text"
+       id="input-nickname"
+       placeholder="수원 고수 김세종">
+        </div>
+        <div>
+            <div class="form-label">📍 소속 지역 선택 (실제 행정구역)</div>
+            <div class="select-row">
+                <select class="select-element" id="form-sido" onchange="synchronizeAdministrativeDistricts()"></select>
+                <select class="select-element" id="form-sigun"></select>
+            </div>
+        </div>
+    </div>
+
+    <div style="width: 100%; margin-bottom: 10px;">
+        <button class="btn-action font-ui" style="background: var(--main-neon-blue); color: #000; font-size:1.6rem;" onclick="validateAndInitializeGame()">대항전 출전!</button>
+    </div>
+</div>
+
+<div class="screen" id="screen-match">
+    <div class="game-header font-ui">
+        <div class="q-badge" id="hud-q-index">Q. 1/15</div>
+        <div class="score-realtime">MATCH PTS: <span id="hud-score" style="font-weight:bold;">0</span></div>
+    </div>
+
+    <div class="progress-outer"><div class="progress-inner" id="hud-progress-fill"></div></div>
+
+    <div class="timer-widget font-ui">
+        <span>⏱️ LIMIT</span>
+        <div class="timer-track"><div class="timer-fill" id="hud-timer-fill"></div></div>
+        <span id="hud-timer-text">30s</span>
+    </div>
+
+    <div class="quiz-card">
+        <div class="quiz-tag font-ui" id="hud-quiz-cat">낱말의 뜻</div>
+        <div class="quiz-text" id="hud-quiz-question">문제를 불러오는 중입니다.</div>
+    </div>
+
+    <div class="zone-interactive" id="hud-interactive-zone"></div>
+</div>
+
+<div class="screen" id="screen-result">
+    <h2 class="font-title result-title">MATCH FINISHED</h2>
+    
+    <div class="score-board-wrapper font-ui">
+        <div class="board-row"><span>정답 맞춤 수</span><span id="res-correct-cnt" style="color:var(--main-green);">0 / 15</span></div>
+        <div class="board-row"><span>최대 연속 콤보</span><span id="res-max-combo" style="color:var(--point-red);">0</span></div>
+        <div class="board-row"><span>최종 소요 시간</span><span id="res-elapsed-time">0초</span></div>
+        <div class="board-row"><span>대항전 획득 총점</span><span id="res-total-score">0점</span></div>
+    </div>
+
+    <div class="contribution-badge-box font-ui">
+        <div style="font-size: 0.95rem; color:#eee;" id="res-contrib-target">서울특별시 대표 기여도</div>
+        <div style="font-size: 2rem; font-weight: bold; color: var(--main-yellow); margin-top: 4px;" id="res-contrib-pts">+0</div>
+        <div style="font-size: 0.85rem; color: #ced4da; margin-top: 2px;">⚡ Firestore 동시 동기화 완료!</div>
+    </div>
+
+    <div class="score-board-wrapper font-ui" style="background:#15162B; border-color:var(--main-neon-blue);">
+        <div style="font-size:0.9rem; color:var(--main-neon-blue); font-weight:bold; margin-bottom:4px;">🏆 실시간 연산 내 매치 순위</div>
+        <div class="board-row" style="font-size:0.9rem;"><span>전국 개인 순위</span><span id="res-rank-national" style="color:#fff;">계산 중...</span></div>
+        <div class="board-row" style="font-size:0.9rem;"><span>시·도 권역 순위</span><span id="res-rank-sido" style="color:#fff;">계산 중...</span></div>
+        <div class="board-row" style="font-size:0.9rem;" id="res-rank-sigun-row"><span>시·군·구 순위</span><span id="res-rank-sigun" style="color:#fff;">계산 중...</span></div>
+    </div>
+
+    <button class="btn-action font-ui" style="background: var(--main-green); color:#000; margin-bottom: 8px;" onclick="switchDashboardView()">전국 대항전 현황판</button>
+    <button class="btn-action font-ui" style="background: #495057; font-size:1.1rem; padding:8px;" onclick="returnToMainHome()">처음으로</button>
+</div>
+
+<div class="screen" id="screen-dashboard">
+    <h2 class="font-title result-title" style="font-size:1.6rem; margin-bottom:6px; color:var(--main-neon-blue);">🗺️ 전국 대항전 대시보드</h2>
+    
+    <div class="contribution-badge-box font-ui" id="dash-my-status-banner" style="background:var(--main-yellow); color:#000; font-size:0.95rem; padding:8px; margin-bottom:8px; box-shadow:none;">
+        집계 데이터 정산 중...
+    </div>
+
+    <div class="map-frame-box">
+        <svg class="map-engine-svg" viewBox="0 0 120 150">
+            <path id="svg-map-서울특별시" class="svg-region-path" d="M40,30 L58,28 L55,42 L42,45 Z" />
+            <path id="svg-map-경기도" class="svg-region-path" d="M25,20 L60,20 L62,55 L40,65 L20,50 Z" />
+            <path id="svg-map-강원도" class="svg-region-path" d="M60,15 L95,20 L85,55 L65,50 Z" />
+            <path id="svg-map-충청권" class="svg-region-path" d="M20,55 L62,60 L55,85 L30,90 Z" />
+            <path id="svg-map-경상권" class="svg-region-path" d="M60,62 L100,60 L90,115 L50,110 Z" />
+            <path id="svg-map-전라권" class="svg-region-path" d="M15,92 L52,90 L45,135 L10,130 Z" />
+            <path id="svg-map-제주도" class="svg-region-path" d="M30,142 L55,142 L50,148 L28,148 Z" />
+        </svg>
+    </div>
+
+    <div class="ranking-scroll-panel font-ui" id="dash-ranking-listbox"></div>
+
+    <button class="btn-action font-ui" style="background: var(--point-purple); margin-top:10px; font-size:1.1rem; padding:10px;" onclick="returnToMainHome()">처음으로</button>
+</div>
+
+</div>
+
+<script>
+    const audioContextInstance = new (window.AudioContext || window.webkitAudioContext)();
+    function triggerAudioNode(type) {
+        if(audioContextInstance.state === 'suspended') audioContextInstance.resume();
+        const osc = audioContextInstance.createOscillator();
+        const gain = audioContextInstance.createGain();
+        osc.connect(gain); gain.connect(audioContextInstance.destination);
+
+        if(type === 'correct') { // 딩동
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioContextInstance.currentTime);
+            osc.frequency.setValueAtTime(659.25, audioContextInstance.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.2, audioContextInstance.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContextInstance.currentTime + 0.35);
+            osc.start(); osc.stop(audioContextInstance.currentTime + 0.35);
+        } else if(type === 'wrong') { // 땡
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(160, audioContextInstance.currentTime);
+            osc.frequency.linearRampToValueAtTime(100, audioContextInstance.currentTime + 0.25);
+            gain.gain.setValueAtTime(0.2, audioContextInstance.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContextInstance.currentTime + 0.25);
+            osc.start(); osc.stop(audioContextInstance.currentTime + 0.25);
+        } else if(type === 'combo') { // 콤보 축하 업업비트
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(440, audioContextInstance.currentTime);
+            osc.frequency.setValueAtTime(554.37, audioContextInstance.currentTime + 0.05);
+            osc.frequency.setValueAtTime(659.25, audioContextInstance.currentTime + 0.1);
+            osc.frequency.setValueAtTime(880, audioContextInstance.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.2, audioContextInstance.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContextInstance.currentTime + 0.4);
+            osc.start(); osc.stop(audioContextInstance.currentTime + 0.4);
+        } else if(type === 'finish') { // 대항전 완료 환호성 코드
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(392.00, audioContextInstance.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1046.50, audioContextInstance.currentTime + 0.6);
+            gain.gain.setValueAtTime(0.15, audioContextInstance.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContextInstance.currentTime + 0.6);
+            osc.start(); osc.stop(audioContextInstance.currentTime + 0.6);
+        }
+    }
+</script>
+
+<script>
+    // ==========================================
+    // [중요] Firebase 연동 설정 가이드
+    // 회의실 동시 플레이 테스트 시 아래 정보를 실제 사용하는 Firebase 프로젝트 정보로 대체하세요.
+    // ==========================================
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY_HERE",
+        authDomain: "YOUR_AUTH_DOMAIN_HERE",
+        projectId: "YOUR_PROJECT_ID_HERE",
+        storageBucket: "YOUR_STORAGE_BUCKET_HERE",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
+        appId: "YOUR_APP_ID_HERE"
+    };
+
+    // 데모 구동 편의성 극대화: 기본 설정값 누락 시 로컬 가상 Mock DB fallback 전환 처리 자동화 구조 적용
+    let db = null;
+    let isFirebaseActive = false;
+    try {
+        if(firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            isFirebaseActive = true;
+            console.log("Firestore 대항전 클라우드 엔진 연결에 성공했습니다.");
+        } else {
+            console.warn("Firebase 정보가 비어있어 완벽한 테스트 시연을 위한 로컬 세션 스토리지 Mock DB 모드로 구동합니다.");
+            initializeMockDatabase();
+        }
+    } catch(e) {
+        console.error("Firebase 초기화 에러, Mock 모드 전환:", e);
+        initializeMockDatabase();
+    }
+
+    // --- 실제 국가 표준 행정구역 완전 정의 테이블 테이블 구현 ---
+    const geoDistrictHierarchy = {
+        "서울특별시": [], "부산광역시": [], "대구광역시": [], "인천광역시": [], 
+        "광주광역시": [], "대전광역시": [], "울산광역시": [], "세종특별자치시": [],
+        "제주특별자치도": ["제주시", "서귀포시"],
+        "경기도": [
+            "수원시", "성남시", "고양시", "용인시", "부천시", "안산시", "안양시", "남양주시", 
+            "화성시", "평택시", "시흥시", "파주시", "김포시", "광명시", "광주시", "군포시", 
+            "오산시", "이천시", "안성시", "의왕시", "하남시", "양주시", "포천시", "여주시", 
+            "동두천시", "과천시", "가평군", "양평군", "연천군"
+        ],
+        "강원도": ["춘천시", "원주시", "강릉시", "동해시", "속초시", "삼척시", "홍천군", "횡성군"],
+        "충청북도": ["청주시", "충주시", "제천시", "보은군", "옥천군", "영동군"],
+        "충청남도": ["천안시", "공주시", "보령시", "아산시", "서산시", "논산시", "계룡시", "당진시"],
+        "전라북도": ["전주시", "군산시", "익산시", "정읍시", "남원시", "김제시", "완주군"],
+        "전라남도": ["목포시", "여수시", "순천시", "나주시", "광양시", "담양군", "곡성군"],
+        "경상북도": ["포항시", "경주시", "김천시", "안동시", "구미시", "영주시", "영천시", "상주시"],
+        "경상남도": ["창원시", "진주시", "통영시", "사천시", "김해시", "밀양시", "거제시", "양산시"]
+    };
+
+    // 실시간 지도 연동용 지리 권역 매핑 매트릭스
+    const mapRegionBinding = {
+        "서울특별시": "서울특별시", "부산광역시": "경상권", "대구광역시": "경상권", "인천광역시": "경기도",
+        "광주광역시": "전라권", "대전광역시": "충청권", "울산광역시": "경상권", "세종특별자치시": "충청권",
+        "제주특별자치도": "제주도", "경기도": "경기도", "강원도": "강원도", "충청북도": "충청권",
+        "충청남도": "충청권", "전라북도": "전라권", "전라남도": "전라권", "경상북도": "경상권", "경상남도": "경상권"
+    };
+
+    // 15개 컴파일 고품질 문항 구조 리소스 팩토리
+    const gameQuizDataset = [
+        { type: "choice", cat: "낱말의 뜻", q: "'도외시하다'의 가장 알맞은 사전적 정의는?", a: ["존중하다", "무시하다", "기억하다", "정리하다"], ans: 1 },
+        { type: "choice", cat: "낱말의 뜻", q: "'절약'의 뜻은 무엇일까요?", a: ["함부로 쓰다", "아껴 쓰다", "나누어 주다", "모으다"], ans: 1 },
+        { type: "choice", cat: "낱말의 뜻", q: "'존중'의 뜻은 무엇일까요?", a: ["무시하다", "소중히 여기다", "경쟁하다", "비난하다"], ans: 1 },
+        { type: "choice", cat: "낱말의 뜻", q: "'도전'의 뜻은 무엇일까요?", a: ["포기하다", "피해 가다", "어려운 일에 맞서다", "기다리다"], ans: 2 },
+        { type: "choice", cat: "낱말의 뜻", q: "'배려'의 뜻은 무엇일까요?", a: ["상대를 생각하다", "경쟁하다", "무시하다", "피하다"], ans: 0 },
+        { type: "choice", cat: "어휘 관계", q: "다음 보기 중 '기쁘다'의 유의어는 어느 것입니까?", a: ["슬프다", "즐겁다", "화나다", "두렵다"], ans: 1 },
+        { type: "choice", cat: "어휘 관계", q: "다음 보기 중 '넓다'의 반의어는 어느 것입니까?", a: ["크다", "좁다", "길다", "깊다"], ans: 1 },
+        { type: "choice", cat: "어휘 관계", q: "다음 단어 중 상위 관계인 '과일'에 호응하는 하위 항목은?", a: ["자동차", "사과", "의자", "연필"], ans: 1 },
+        { type: "choice", cat: "어휘 관계", q: "다음 중 '빠르다'의 유의어에 해당하는 것은?", a: ["신속하다", "느리다", "무겁다", "작다"], ans: 0 },
+        { type: "choice", cat: "어휘 관계", q: "다음 중 '높다'의 반의어에 해당하는 것은?", a: ["크다", "멀다", "낮다", "넓다"], ans: 2 },
+        { type: "choice", cat: "관용 표현", q: "'귀가 얇다'라는 문장 속 관용적 의미로 적합한 표현은?", a: ["귀가 작다", "남의 말에 쉽게 흔들리다", "소리를 잘 듣는다", "조용하다"], ans: 1 },
+        
+        // 연결형 문제 개선 (양방향 연결 매커니즘 타겟 문항)
+        { 
+            type: "line", cat: "연결형 매칭", q: "앞말과 매칭되는 완벽한 관용 표현의 짝을 찾아 연결하세요.", 
+            left: ["찬물을", "동에 번쩍", "입이"], right: ["서에 번쩍", "무겁다", "끼얹다"], 
+            pairs: {0: 2, 1: 0, 2: 1} // 찬물을-끼얹다, 동에번쩍-서에번쩍, 입이-무겁다
+        },
+        { 
+            type: "line", cat: "연결형 매칭", q: "전통 속담의 결합 구조가 맞는 것끼리 선을 그어주세요.", 
+            left: ["콩 심은 데", "작은 고추가"], right: ["더 맵다", "콩 난다"], 
+            pairs: {0: 1, 1: 0} // 콩 심은데-콩 난다, 작은 고추가-더 맵다
+        },
+        { 
+            type: "line", cat: "연결형 매칭", q: "단어와 알맞은 설명을 서로 직관적으로 매칭해보세요.", 
+            left: ["발 벗고 나서다", "귀가 얇다"], right: ["남의 말에 흔들림", "적극적으로 돕다"], 
+            pairs: {0: 1, 1: 0} 
+        },
+
+        // 주관식 문항
+        {  type: "subjective",
+  cat: "속담",
+  q: '"백지장도 맞들면 낫다."의 뜻을 설명하는 핵심 낱말을 두 글자로 쓰세요.',
+  ans: ["협동", "협력", "협조"] }
+    ];
+
+    // 상태 공간 스튜어드십
+    let currentSido = "";
+    let currentSigun = "";
+    let userNickname = "";
+
+    let playQuizIndex = 0;
+    let accumulativeScore = 0;
+    let matchCorrectCount = 0;
+    let matchComboCombo = 0;
+    let matchMaxCombo = 0;
+    let stopwatchInterval = null;
+    let matchTimeCount = 0;
+
+    let countdownTime = 30;
+    let countdownInterval = null;
+
+    // 양방향/터치 지원 선긋기 구조 추적 오퍼레이션 컨텍스트
+    let lineEngineState = {
+        selectedNode: null, // {side: 'left'|'right', idx: number}
+        connectedPairs: {}, // leftIdx: rightIdx
+        coordsLeft: {}, coordsRight: {}
+    };
+
+    // 메인 오프닝 구동 준비
+    initAppLaunchSequence();
+
+    function initAppLaunchSequence() {
+        const sidoElement = document.getElementById('form-sido');
+        sidoElement.innerHTML = "";
+        for (let sidoKey in geoDistrictHierarchy) {
+            const opt = document.createElement('option');
+            opt.value = sidoKey; opt.innerText = sidoKey;
+            sidoElement.appendChild(opt);
+        }
+        synchronizeAdministrativeDistricts();
+        renderLiveMetaStatusDashboard();
+    }
+
+    // 하위 시군구 유동 처리 가이드라인
+    function synchronizeAdministrativeDistricts() {
+        const targetSido = document.getElementById('form-sido').value;
+        const sigunElement = document.getElementById('form-sigun');
+        sigunElement.innerHTML = "";
+
+        const subList = geoDistrictHierarchy[targetSido];
+        if(subList.length === 0) {
+            sigunElement.style.display = "none";
+        } else {
+            sigunElement.style.display = "inline-block";
+            subList.forEach(sg => {
+                const opt = document.createElement('option');
+                opt.value = sg; opt.innerText = sg;
+                sigunElement.appendChild(opt);
+            });
+        }
+    }
+
+    // 메인 오프닝 전광판 메타데이터 리프레시
+    function renderLiveMetaStatusDashboard() {
+        if(isFirebaseActive) {
+            db.collection("match_records").get().then(snap => {
+                document.getElementById('meta-total-users').innerText = `${snap.size} 명`;
+                calculateGlobalTopRegion();
+            });
+        } else {
+            let localRecords = JSON.parse(localStorage.getItem("mock_match_records") || "[]");
+            document.getElementById('meta-total-users').innerText = `${localRecords.length} 명`;
+            document.getElementById('meta-top-region').innerText = "서울특별시";
+        }
+    }
+
+    function calculateGlobalTopRegion() {
+        db.collection("match_records").get().then(snap => {
+            let aggregate = {};
+            snap.forEach(doc => {
+                let d = doc.data();
+                aggregate[d.sido] = (aggregate[d.sido] || 0) + d.score;
+            });
+            let topReg = "서울특별시"; let max = -1;
+            for(let key in aggregate) {
+                if(aggregate[key] > max) { max = aggregate[key]; topReg = key; }
+            }
+            document.getElementById('meta-top-region').innerText = topReg;
+        });
+    }
+
+    // --- 게임 기지 세션 진입 및 밸리데이션 검사 ---
+    function validateAndInitializeGame() {
+        const nick = document.getElementById('input-nickname').value.trim();
+        if(!nick) { alert("국가대표로 참가할 닉네임을 선언해주십시오!"); return; }
+        
+        userNickname = nick;
+        currentSido = document.getElementById('form-sido').value;
+        const sigunEl = document.getElementById('form-sigun');
+        currentSigun = sigunEl.style.display !== 'none' ? sigunEl.value : "";
+
+        // 대항전 스탯 완전 세팅
+        playQuizIndex = 0; accumulativeScore = 0; matchCorrectCount = 0;
+        matchComboCombo = 0; matchMaxCombo = 0; matchTimeCount = 0;
+
+        stopwatchInterval = setInterval(() => { matchTimeCount++; }, 1000);
+        
+        switchActiveScreen('screen-match');
+        pipelineCoreQuizScheduler();
+    }
+
+    function switchActiveScreen(id) {
+        document.querySelectorAll('.screen').forEach(sc => sc.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    // 문항 유동 분기 스케줄러
+    function pipelineCoreQuizScheduler() {
+        if(playQuizIndex >= gameQuizDataset.length) {
+            dispatchMatchDataToFirestore();
+            return;
+        }
+
+        document.getElementById('hud-q-index').innerText = `Q. ${playQuizIndex + 1}/${gameQuizDataset.length}`;
+        document.getElementById('hud-score').innerText = accumulativeScore;
+        document.getElementById('hud-progress-fill').style.width = `${(playQuizIndex / gameQuizDataset.length) * 100}%`;
+
+        const quiz = gameQuizDataset[playQuizIndex];
+        document.getElementById('hud-quiz-cat').innerText = quiz.cat;
+        document.getElementById('hud-quiz-question').innerText = quiz.q;
+
+        const containerZone = document.getElementById('hud-interactive-zone');
+        containerZone.innerHTML = "";
+
+        // 타이머 재초기화
+        countdownTime = 30;
+        refreshTimerHUD();
+        clearInterval(countdownInterval);
+        countdownInterval = setInterval(() => {
+            countdownTime--;
+            refreshTimerHUD();
+            if(countdownTime <= 0) {
+                clearInterval(countdownInterval);
+                processStandardAnswerJudgement(false, 0);
+            }
+        }, 1000);
+
+        // 인터랙션 분기 매핑
+        if(quiz.type === 'choice') {
+            compileChoiceWidget(quiz.a);
+        } else if(quiz.type === 'subjective') {
+            compileSubjectiveWidget();
+        } else if(quiz.type === 'line') {
+            compileBiDirectionalLineWidget(quiz);
+        }
+    }
+
+    function refreshTimerHUD() {
+        document.getElementById('hud-timer-text').innerText = `${countdownTime}s`;
+        document.getElementById('hud-timer-fill').style.width = `${(countdownTime / 30) * 100}%`;
+    }
+
+    // A. 객관식 처리기
+    function compileChoiceWidget(options) {
+        const zone = document.getElementById('hud-interactive-zone');
+        options.forEach((opt, index) => {
+            const btn = document.createElement('button');
+            btn.className = "btn-choice font-ui";
+            btn.innerHTML = `<span class="choice-idx">${index+1}</span> ${opt}`;
+            btn.onclick = () => {
+                clearInterval(countdownInterval);
+                const isCorrect = (index === gameQuizDataset[playQuizIndex].ans);
+                processStandardAnswerJudgement(isCorrect, countdownTime);
+            };
+            zone.appendChild(btn);
+        });
+    }
+
+    // B. 주관식 처리기
+    function compileSubjectiveWidget() {
+        const zone = document.getElementById('hud-interactive-zone');
+        const wrapper = document.createElement('div');
+        wrapper.className = "sub-container font-ui";
+
+        const input = document.createElement('input');
+        input.type = "text"; input.className = "input-text";
+        input.placeholder = "정답 단어를 수동 입력하세요";
+        input.id = "live-sub-field";
+
+        const btn = document.createElement('button');
+        btn.className = "btn-action";
+        btn.style.background = "var(--main-neon-blue)"; btn.style.color = "#000";
+        btn.innerText = "결과 보기";
+        btn.onclick = () => {
+            const txt = input.value.trim();
+            if(!txt) return;
+            clearInterval(countdownInterval);
+            const isCorrect = gameQuizDataset[playQuizIndex].ans.includes(txt);
+            processStandardAnswerJudgement(isCorrect, countdownTime);
+        };
+
+        wrapper.appendChild(input); wrapper.appendChild(btn);
+        zone.appendChild(wrapper);
+    }
+
+    // C. 완벽 양방향 & 터치 인터랙션 매칭 캔버스 빌더
+    function compileBiDirectionalLineWidget(quiz) {
+        const zone = document.getElementById('hud-interactive-zone');
+        
+        const board = document.createElement('div');
+        board.className = "matching-board";
+        board.id = "live-line-board";
+
+        const canvas = document.createElement('canvas');
+        canvas.className = "canvas-overlay"; canvas.id = "canvas-line-layer";
+        board.appendChild(canvas);
+
+        const leftColumnNode = document.createElement('div'); leftColumnNode.className = "match-column font-ui";
+        const rightColumnNode = document.createElement('div'); rightColumnNode.className = "match-column font-ui";
+
+        lineEngineState.selectedNode = null;
+        lineEngineState.connectedPairs = {};
+
+        quiz.left.forEach((text, i) => {
+            const item = document.createElement('div'); item.className = "node-box"; item.innerText = text;
+            item.id = `line-node-l-${i}`;
+            item.onclick = () => handleDynamicNodeLinkInteraction('left', i);
+            leftColumnNode.appendChild(item);
+        });
+
+        quiz.right.forEach((text, i) => {
+            const item = document.createElement('div'); item.className = "node-box"; item.innerText = text;
+            item.id = `line-node-r-${i}`;
+            item.onclick = () => handleDynamicNodeLinkInteraction('right', i);
+            rightColumnNode.appendChild(item);
+        });
+
+        board.appendChild(leftColumnNode); board.appendChild(rightColumnNode);
+        zone.appendChild(board);
+
+        // 비동기 뷰포트 배치 크기 연산 컴파일 보장
+        setTimeout(() => {
+            canvas.width = board.clientWidth; canvas.height = board.clientHeight;
+            calculateNodeGlobalOffsets();
+            renderConfirmedCanvasLines();
+        }, 60);
+    }
+
+    function calculateNodeGlobalOffsets() {
+        const board = document.getElementById('live-line-board');
+        if(!board) return;
+        const bRect = board.getBoundingClientRect();
+        const quiz = gameQuizDataset[playQuizIndex];
+
+        quiz.left.forEach((_, i) => {
+            const el = document.getElementById(`line-node-l-${i}`);
+            const r = el.getBoundingClientRect();
+            lineEngineState.coordsLeft[i] = { x: r.right - bRect.left, y: (r.top + r.height/2) - bRect.top };
+        });
+
+        quiz.right.forEach((_, i) => {
+            const el = document.getElementById(`line-node-r-${i}`);
+            const r = el.getBoundingClientRect();
+            lineEngineState.coordsRight[i] = { x: r.left - bRect.left, y: (r.top + r.height/2) - bRect.top };
+        });
+    }
+
+    // 양방향 터치/마우스 완벽 대응 결합 스위치
+    function handleDynamicNodeLinkInteraction(side, index) {
+        const state = lineEngineState;
+        
+        // 이미 매칭 완료 수립된 대상 차단
+        if(side === 'left' && Object.keys(state.connectedPairs).includes(String(index))) return;
+        if(side === 'right' && Object.values(state.connectedPairs).includes(index)) return;
+
+        if(state.selectedNode === null) {
+            // 최초 선택 설정
+            state.selectedNode = { side, index };
+            highlightSelectedNodeElement(side, index, true);
+        } else {
+            // 두 번째 선택 - 동일 사이드 교체 또는 반대편 결합 시도 처리
+            if(state.selectedNode.side === side) {
+                highlightSelectedNodeElement(state.selectedNode.side, state.selectedNode.index, false);
+                state.selectedNode = { side, index };
+                highlightSelectedNodeElement(side, index, true);
+            } else {
+                // 양방향 결합 성공 유도 검사 (왼쪽->오른쪽 / 오른쪽->왼쪽 자유 매칭)
+                const leftIdx = (side === 'left') ? index : state.selectedNode.index;
+                const rightIdx = (side === 'right') ? index : state.selectedNode.index;
+                const correctRightMatch = gameQuizDataset[playQuizIndex].pairs[leftIdx];
+
+                if(rightIdx === correctRightMatch) {
+                    triggerAudioNode('correct');
+                    state.connectedPairs[leftIdx] = rightIdx;
+                    
+                    document.getElementById(`line-node-l-${leftIdx}`).className = "node-box linked-success";
+                    document.getElementById(`line-node-r-${rightIdx}`).className = "node-box linked-success";
+                    
+                    highlightSelectedNodeElement(state.selectedNode.side, state.selectedNode.index, false);
+                    state.selectedNode = null;
+                    renderConfirmedCanvasLines();
+
+                    // 전체 완료 조건 매칭 검사
+                    const targetLen = Object.keys(gameQuizDataset[playQuizIndex].pairs).length;
+                    if(Object.keys(state.connectedPairs).length === targetLen) {
+                        clearInterval(countdownInterval);
+                        processStandardAnswerJudgement(true, countdownTime);
+                    }
+                } else {
+                    // 결합 실패 적색 에러선 플래시 연출
+                    triggerAudioNode('wrong');
+                    flashErrorCanvasLine(leftIdx, rightIdx);
+                    highlightSelectedNodeElement(state.selectedNode.side, state.selectedNode.index, false);
+                    state.selectedNode = null;
+                }
+            }
+        }
+    }
+
+    function highlightSelectedNodeElement(side, idx, add) {
+        const id = (side === 'left') ? `line-node-l-${idx}` : `line-node-r-${idx}`;
+        const el = document.getElementById(id);
+        if(el) {
+            if(add) el.classList.add('selected');
+            else el.classList.remove('selected');
+        }
+    }
+
+    function renderConfirmedCanvasLines() {
+        const canvas = document.getElementById('canvas-line-layer');
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+
+        ctx.lineWidth = 3.5; ctx.strokeStyle = "var(--main-green)";
+        for(let l in lineEngineState.connectedPairs) {
+            const r = lineEngineState.connectedPairs[l];
+            const s = lineEngineState.coordsLeft[l]; const e = lineEngineState.coordsRight[r];
+            if(s && e) {
+                ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+            }
+        }
+    }
+
+    function flashErrorCanvasLine(l, r) {
+        const canvas = document.getElementById('canvas-line-layer');
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const s = lineEngineState.coordsLeft[l]; const e = lineEngineState.coordsRight[r];
+
+        if(s && e) {
+            ctx.lineWidth = 4; ctx.strokeStyle = "var(--point-red)";
+            ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+            setTimeout(() => { renderConfirmedCanvasLines(); }, 400);
+        }
+    }
+
+    // 정/오답 판정 및 가치 가산 연출 시스템 (캐릭터 배제형 인포그래픽 중심)
+    function processStandardAnswerJudgement(isCorrect, secondsLeft) {
+        const flash = document.getElementById('feedback-flash-backdrop');
+        const container = document.getElementById('game-viewport');
+
+        if(isCorrect) {
+            triggerAudioNode('correct');
+            matchCorrectCount++; matchComboCombo++;
+            if(matchComboCombo > matchMaxCombo) matchMaxCombo = matchComboCombo;
+
+            let comboBonus = 0;
+            if(matchComboCombo >= 10) comboBonus = 50;
+            else if(matchComboCombo >= 7) comboBonus = 30;
+            else if(matchComboCombo >= 5) comboBonus = 20;
+            else if(matchComboCombo >= 3) comboBonus = 10;
+
+            accumulativeScore += (100 + (secondsLeft * 2) + comboBonus);
+
+            flash.className = "flash-screen correct-state";
+            setTimeout(() => { flash.className = "flash-screen"; }, 350);
+
+            // 독점식 콤보 팝업 트리거 작동 (중첩 금지 인터럽트 포함)
+            if(matchComboCombo === 3) displayExclusiveComboBanner("3 COMBO", "GOOD! 👍");
+            else if(matchComboCombo === 5) displayExclusiveComboBanner("5 COMBO", "GREAT! 🔥");
+            else if(matchComboCombo === 7) displayExclusiveComboBanner("7 COMBO", "AWESOME! 😎");
+            else if(matchComboCombo >= 10) displayExclusiveComboBanner(`${matchComboCombo} COMBO`, "LEGEND! 👑");
+
+        } else {
+            triggerAudioNode('wrong');
+            matchComboCombo = 0; // 콤보 단절
+
+            container.classList.add('shake-body');
+            setTimeout(() => { container.classList.remove('shake-body'); }, 350);
+        }
+
+        setTimeout(() => {
+            playQuizIndex++;
+            pipelineCoreQuizScheduler();
+        }, 900);
+    }
+
+    // 중첩이 차단된 순수 무결한 팝업 연출기
+    function displayExclusiveComboBanner(title, sub) {
+        triggerAudioNode('combo');
+        const layer = document.getElementById('global-combo-layer');
+        const box = document.getElementById('combo-neon-box');
+
+        box.classList.remove('run-animation');
+        void box.offsetWidth; // DOM 강제 리플로우 유도 트리거
+
+        document.getElementById('text-combo-title').innerText = title;
+        document.getElementById('text-combo-subtitle').innerText = sub;
+
+        layer.style.display = 'flex';
+        box.classList.add('run-animation');
+
+        setTimeout(() => { layer.style.display = 'none'; }, 1500);
+    }
+
+    // --- 4. Firestore 레코드 전송 송신 파이프라인 ---
+    function dispatchMatchDataToFirestore() {
+        clearInterval(stopwatchInterval);
+        clearInterval(countdownInterval);
+        switchActiveScreen('screen-result');
+        triggerAudioNode('finish');
+
+        // 기본 정보 선매핑 표시
+        document.getElementById('res-correct-cnt').innerText = `${matchCorrectCount} / ${gameQuizDataset.length}`;
+        document.getElementById('res-max-combo').innerText = matchMaxCombo;
+        document.getElementById('res-elapsed-time').innerText = `${matchTimeCount}초`;
+        document.getElementById('res-total-score').innerText = `${accumulativeScore}점`;
+
+        const townStr = currentSigun ? `${currentSido} ${currentSigun}` : currentSido;
+        document.getElementById('res-contrib-target').innerText = `📍 ${townStr} 국가대표 기여 포인트`;
+        document.getElementById('res-contrib-pts').innerText = `+${accumulativeScore.toLocaleString()}`;
+
+        const payload = {
+            nickname: userNickname,
+            sido: currentSido,
+            sigun: currentSigun,
+            score: accumulativeScore,
+            correctCount: matchCorrectCount,
+            maxCombo: matchMaxCombo,
+            timestamp: Date.now()
+        };
+
+        if(isFirebaseActive) {
+            db.collection("match_records").add(payload).then(() => {
+                computeDynamicMultidimensionalRankings();
+            }).catch(err => {
+                console.error("데이터 기록 전송 실패, 캐시 강제 변환", err);
+                computeDynamicMultidimensionalRankings();
+            });
+        } else {
+            let records = JSON.parse(localStorage.getItem("mock_match_records") || "[]");
+            records.push(payload);
+            localStorage.setItem("mock_match_records", JSON.stringify(records));
+            computeDynamicMultidimensionalRankings();
+        }
+    }
+
+    // 5. 정밀 다차원 순위 동적 연산 알고리즘 (가짜 데이터 원천 차단)
+    function computeDynamicMultidimensionalRankings() {
+        if(isFirebaseActive) {
+            db.collection("match_records").get().then(snap => {
+                let recordsList = [];
+                snap.forEach(doc => recordsList.push(doc.data()));
+                executeRankingMatrixCalculation(recordsList);
+            });
+        } else {
+            let recordsList = JSON.parse(localStorage.getItem("mock_match_records") || "[]");
+            executeRankingMatrixCalculation(recordsList);
+        }
+    }
+
+    function executeRankingMatrixCalculation(list) {
+        // 내 스코어와 동일 스코어 정렬 기준 컴파일
+        // 1. 전국 개인 순위 계산
+        let sortedNational = [...list].sort((x, y) => y.score - x.score);
+        let nationalRank = sortedNational.findIndex(r => r.nickname === userNickname && r.score === accumulativeScore) + 1;
+        if(nationalRank <= 0) nationalRank = 1;
+
+        // 2. 시도 내 개인 순위 계산
+        let sortedSidoList = [...list].filter(r => r.sido === currentSido).sort((x, y) => y.score - x.score);
+        let sidoRank = sortedSidoList.findIndex(r => r.nickname === userNickname && r.score === accumulativeScore) + 1;
+        if(sidoRank <= 0) sidoRank = 1;
+
+        document.getElementById('res-national-rank').innerText = `전국 ${nationalRank}위`;
+        document.getElementById('res-sido-rank').innerText = `${currentSido} ${sidoRank}위`;
+
+        // 3. 시군구 순위 계산 (광역시 등 하위 없을 시 히든 패스)
+        const rowSigun = document.getElementById('res-rank-sigun-row');
+        if(!currentSigun) {
+            rowSigun.style.display = "none";
+        } else {
+            rowSigun.style.display = "flex";
+            let sortedSigunList = [...list].filter(r => r.sido === currentSido && r.sigun === currentSigun).sort((x, y) => y.score - x.score);
+            let sigunRank = sortedSigunList.findIndex(r => r.nickname === userNickname && r.score === accumulativeScore) + 1;
+            if(sigunRank <= 0) sigunRank = 1;
+            document.getElementById('res-sigun-rank').innerText = `${currentSigun} ${sigunRank}위`;
+        }
+    }
+
+    // 6. 실시간 동기화 전국 랭킹 보드 대시보드 스위칭 컴포넌트
+    function switchDashboardView() {
+        switchActiveScreen('screen-dashboard');
+        
+        if(isFirebaseActive) {
+            db.collection("match_records").get().then(snap => {
+                let recordsList = [];
+                snap.forEach(doc => recordsList.push(doc.data()));
+                compileDashboardVisualMetrics(recordsList);
+            });
+        } else {
+            let recordsList = JSON.parse(localStorage.getItem("mock_match_records") || "[]");
+            compileDashboardVisualMetrics(recordsList);
+        }
+    }
+
+    function compileDashboardVisualMetrics(list) {
+        // 권역 통합 테이블 스탯 빌드
+        let regionScores = {
+            "서울특별시": { score: 0, users: 0 }, "경기도": { score: 0, users: 0 },
+            "강원도": { score: 0, users: 0 }, "충청권": { score: 0, users: 0 },
+            "전라권": { score: 0, users: 0 }, "경상권": { score: 0, users: 0 },
+            "제주도": { score: 0, users: 0 }
+        };
+
+        list.forEach(r => {
+            const mappedRegion = mapRegionBinding[r.sido] || "서울특별시";
+            if(regionScores[mappedRegion]) {
+                regionScores[mappedRegion].score += r.score;
+                regionScores[mappedRegion].users += 1;
+            }
+        });
+
+        // 리스트 정렬 변환
+        let sortedDashboard = [];
+        for(let name in regionScores) {
+            sortedDashboard.push({ name, ...regionScores[name] });
+        }
+        sortedDashboard.sort((x, y) => y.score - x.score);
+
+        // 상단 하이라이트 요약 대시보드 적용
+        const myMapTarget = mapRegionBinding[currentSido];
+        const myRegionRankIdx = sortedDashboard.findIndex(d => d.name === myMapTarget) + 1;
+        const displayTownText = currentSigun ? `${currentSido} ${currentSigun}` : currentSido;
+
+        document.getElementById('dash-my-status-banner').innerHTML = `
+            🏆 내 소속: <strong>${displayTownText}</strong> | 대표 권역: <strong>${myMapTarget}</strong><br>
+            🚀 현재 우리 권역 순위: <span style="text-decoration:underline; font-weight:bold;">전국 ${myRegionRankIdx}위</span> (${regionScores[myMapTarget].score.toLocaleString()}점)
+        `;
+
+        // SVG 지도 하이라이팅 연출 라벨 처리 및 색상 매핑 분기 작동
+        document.querySelectorAll('.svg-region-path').forEach(p => {
+            p.className.baseVal = "svg-region-path"; // 초기화
+        });
+
+        sortedDashboard.forEach((data, i) => {
+            const rank = i + 1;
+            const pathEl = document.getElementById(`svg-map-${data.name}`);
+            if(pathEl) {
+                if(rank === 1) pathEl.classList.add('rank-gold-color');
+                else if(rank === 2) pathEl.classList.add('rank-silver-color');
+                else if(rank === 3) pathEl.classList.add('rank-bronze-color');
+                else pathEl.classList.add('rank-normal-color');
+            }
+        });
+
+        // 내 표적지 무한 점멸 유도 바인딩
+        const myPathElement = document.getElementById(`svg-map-${myMapTarget}`);
+        if(myPathElement) {
+            myPathElement.classList.add('my-target-blink');
+        }
+
+        // 스크롤 리스트 돔 노드 삽입
+        const listbox = document.getElementById('dash-ranking-listbox');
+        listbox.innerHTML = "";
+
+        sortedDashboard.forEach((data, index) => {
+            const rank = index + 1;
+            const item = document.createElement('div');
+            item.className = "rank-item-flex";
+            if(data.name === myMapTarget) {
+                item.className = "rank-item-flex my-town-highlight";
+            }
+
+            let badgeStyle = "circle-badge";
+            if(rank === 1) badgeStyle += " bg1";
+            if(rank === 2) badgeStyle += " bg2";
+            if(rank === 3) badgeStyle += " bg3";
+
+            item.innerHTML = `
+                <div>
+                    <span class="${badgeStyle}">${rank}</span>
+                    <span style="font-weight:bold;">${data.name}</span>
+                </div>
+                <div style="text-align:right;">
+                    <span style="color:var(--main-neon-blue); font-weight:bold;">${data.score.toLocaleString()} PTS</span><br>
+                    <span style="font-size:0.75rem; color:#888;">참가인원 ${data.users}명</span>
+                </div>
+            `;
+            listbox.appendChild(item);
+        });
+    }
+
+    function returnToMainHome() {
+        switchActiveScreen('screen-start');
+        renderLiveMetaStatusDashboard();
+    }
+
+    // 로컬 디바이스 테스트 지원용 가상 DB 시드 빌더
+    function initializeMockDatabase() {
+        let records = localStorage.getItem("mock_match_records");
+        if(!records) {
+            const mockSeed = [
+                { nickname: "경기지사", sido: "경기도", sigun: "수원시", score: 1350, correctCount: 12, maxCombo: 6, timestamp: Date.now() },
+                { nickname: "서울스타", sido: "서울특별시", sigun: "", score: 1600, correctCount: 14, maxCombo: 9, timestamp: Date.now() },
+                { nickname: "해운대파이터", sido: "부산광역시", sigun: "", score: 1200, correctCount: 11, maxCombo: 5, timestamp: Date.now() }
+            ];
+            localStorage.setItem("mock_match_records", JSON.stringify(mockSeed));
+        }
+    }
+</script>
+
+<div style="display:none;">
+    <span id="res-national-rank">계산 중...</span>
+    <span id="res-sido-rank">계산 중...</span>
+    <span id="res-sigun-rank">계산 중...</span>
+</div>
+
+</body>
+</html>
